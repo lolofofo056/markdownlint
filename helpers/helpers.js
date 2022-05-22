@@ -30,8 +30,12 @@ module.exports.orderedListItemMarkerRe = /^[\s>]*0*(\d+)[.)]/;
 // Regular expression for all instances of emphasis markers
 const emphasisMarkersRe = /[_*]/g;
 
-// Regular expression for link reference definition lines
-module.exports.linkReferenceRe = /^ {0,3}\[[^\]]+]:\s.*$/;
+// Regular expression for reference links (full, collapsed, and shortcut)
+const referenceLinkRe = /\[((?:\[[^\]]*]|[^\]])*)](?:\[([^\]]*)\])?/g;
+
+// Regular expression for link reference definitions
+const linkReferenceDefinitionRe = /^ {0,3}\[(.*[^\\])]:\s.*$/;
+module.exports.linkReferenceDefinitionRe = linkReferenceDefinitionRe;
 
 // All punctuation characters (normal and full-width)
 const allPunctuation = ".,;:!?。，；：！？";
@@ -516,6 +520,28 @@ function forEachInlineCodeSpan(input, handler) {
 module.exports.forEachInlineCodeSpan = forEachInlineCodeSpan;
 
 /**
+ * Adds ellipsis to the left/right/middle of the specified text.
+ *
+ * @param {string} text Text to ellipsify.
+ * @param {boolean} [start] True iff the start of the text is important.
+ * @param {boolean} [end] True iff the end of the text is important.
+ * @returns {string} Ellipsified text.
+ */
+function ellipsify(text, start, end) {
+  if (text.length <= 30) {
+    // Nothing to do
+  } else if (start && end) {
+    text = text.substr(0, 15) + "..." + text.substr(-15);
+  } else if (end) {
+    text = "..." + text.substr(-30);
+  } else {
+    text = text.substr(0, 30) + "...";
+  }
+  return text;
+}
+module.exports.ellipsify = ellipsify;
+
+/**
  * Adds a generic error object via the onError callback.
  *
  * @param {Object} onError RuleOnError instance.
@@ -555,15 +581,7 @@ module.exports.addErrorDetailIf = function addErrorDetailIf(
 // Adds an error object with context via the onError callback
 module.exports.addErrorContext = function addErrorContext(
   onError, lineNumber, context, left, right, range, fixInfo) {
-  if (context.length <= 30) {
-    // Nothing to do
-  } else if (left && right) {
-    context = context.substr(0, 15) + "..." + context.substr(-15);
-  } else if (right) {
-    context = "..." + context.substr(-30);
-  } else {
-    context = context.substr(0, 30) + "...";
-  }
+  context = ellipsify(context, left, right);
   addError(onError, lineNumber, null, context, range, fixInfo);
 };
 
@@ -788,6 +806,52 @@ function emphasisMarkersInContent(params) {
   return byLine;
 }
 module.exports.emphasisMarkersInContent = emphasisMarkersInContent;
+
+/**
+ * Returns an object with information about reference links.
+ *
+ * @param {Object} params RuleParams instance.
+ * @param {Object} lineMetadata Line metadata object.
+ * @returns {Object} Reference link data.
+ */
+function getReferenceLinkData(params, lineMetadata) {
+  const references = new Map();
+  const definitions = new Map();
+  const duplicateDefinitions = [];
+  forEachLine(lineMetadata, (line, lineIndex, inCode) => {
+    if (!inCode) {
+      const linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
+      if (linkReferenceDefinitionMatch) {
+        const label = linkReferenceDefinitionMatch[1].toLowerCase().trim();
+        if (definitions.has(label)) {
+          duplicateDefinitions.push([ label, lineIndex ]);
+        } else {
+          definitions.set(label, lineIndex);
+        }
+      } else {
+        const referenceLinkMatch = referenceLinkRe.exec(line);
+        if (referenceLinkMatch) {
+          const label = (referenceLinkMatch[2] || referenceLinkMatch[1])
+            .toLowerCase().trim();
+          references.set(
+            label,
+            [
+              lineIndex,
+              referenceLinkMatch.index,
+              referenceLinkMatch[0].length
+            ]
+          );
+        }
+      }
+    }
+  });
+  return {
+    references,
+    definitions,
+    duplicateDefinitions
+  };
+}
+module.exports.getReferenceLinkData = getReferenceLinkData;
 
 /**
  * Gets the most common line ending, falling back to the platform default.

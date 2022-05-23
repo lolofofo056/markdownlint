@@ -53,7 +53,7 @@ module.exports.orderedListItemMarkerRe = /^[\s>]*0*(\d+)[.)]/;
 // Regular expression for all instances of emphasis markers
 var emphasisMarkersRe = /[_*]/g;
 // Regular expression for reference links (full, collapsed, and shortcut)
-var referenceLinkRe = /\[((?:\[[^\]]*]|[^\]])*)](?:\[([^\]]*)\])?/g;
+var referenceLinkRe = /(?:^|[^)])\[((?:\[[^\]]*]|[^\]])*)](?:(?:\[([^\]]*)\])|[^(]|$)/g;
 // Regular expression for link reference definitions
 var linkReferenceDefinitionRe = /^ {0,3}\[(.*[^\\])]:\s.*$/;
 module.exports.linkReferenceDefinitionRe = linkReferenceDefinitionRe;
@@ -537,13 +537,13 @@ function ellipsify(text, start, end) {
         // Nothing to do
     }
     else if (start && end) {
-        text = text.substr(0, 15) + "..." + text.substr(-15);
+        text = text.substring(0, 15) + "..." + text.substring(text.length - 15);
     }
     else if (end) {
-        text = "..." + text.substr(-30);
+        text = "..." + text.substring(text.length - 30);
     }
     else {
-        text = text.substr(0, 30) + "...";
+        text = text.substring(0, 30) + "...";
     }
     return text;
 }

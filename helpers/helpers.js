@@ -30,9 +30,8 @@ module.exports.orderedListItemMarkerRe = /^[\s>]*0*(\d+)[.)]/;
 // Regular expression for all instances of emphasis markers
 const emphasisMarkersRe = /[_*]/g;
 
-// Regular expression for reference links (full, collapsed, and shortcut)
-const referenceLinkRe =
-  /(?:^|[^)])\[((?:\[[^\]]*]|[^\]])*)](?:(?:\[([^\]]*)\])|[^(]|$)/g;
+// Regular expression for reference links (full and collapsed but not shortcut)
+const referenceLinkRe = /!?\[((?:\[[^\]]*]|[^\]])*)](?:\[([^\]]*)\])/g;
 
 // Regular expression for link reference definitions
 const linkReferenceDefinitionRe = /^ {0,3}\[(.*[^\\])]:\s.*$/;

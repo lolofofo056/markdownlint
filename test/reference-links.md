@@ -1,5 +1,7 @@
 # Reference Links
 
+## Links
+
 Full reference link: [text][label]
 
 Collapsed reference link: [label][]
@@ -25,7 +27,14 @@ Missing label: [text][missing] {_MD052}
 [label]: https://example.com/label
 [ label with spaces ]: https://example.com/label-with-spaces
 
+## Labels
+
+Duplicate:
 [label]: {_MD053}
+
+Unused:
 [unused]: {_MD053}
+
+## More Links
 
 After link reference definition: [text][label]

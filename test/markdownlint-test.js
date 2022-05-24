@@ -840,7 +840,7 @@ test.cb("customFileSystemAsync", (t) => {
 });
 
 test.cb("readme", (t) => {
-  t.plan(121);
+  t.plan(125);
   const tagToRules = {};
   rules.forEach(function forRule(rule) {
     rule.tags.forEach(function forTag(tag) {
@@ -916,7 +916,7 @@ test.cb("readme", (t) => {
 });
 
 test.cb("rules", (t) => {
-  t.plan(359);
+  t.plan(373);
   fs.readFile("doc/Rules.md", "utf8",
     (err, contents) => {
       t.falsy(err);
@@ -1093,7 +1093,7 @@ test("validateConfigExampleJson", async(t) => {
 });
 
 test("allBuiltInRulesHaveValidUrl", (t) => {
-  t.plan(141);
+  t.plan(147);
   rules.forEach(function forRule(rule) {
     t.truthy(rule.information);
     t.true(Object.getPrototypeOf(rule.information) === URL.prototype);

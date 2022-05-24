@@ -8,5 +8,7 @@ This is not a (parenthesized footnote)[x^y] {MD011}
 
 Nor (is this)[z] {MD011}
 
+<!-- markdownlint-disable MD053 -->
+
 [^1]: Footnote
 [^2]: Another footnote

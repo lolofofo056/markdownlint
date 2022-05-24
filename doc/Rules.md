@@ -2031,6 +2031,26 @@ Note: Creating anchors for headings is not part of the CommonMark specification.
 
 [github-section-links]: https://docs.github.com/en/get-started/writing-on-github/getting-started-with-writing-and-formatting-on-github/basic-writing-and-formatting-syntax#section-links
 
+<a name="md052"></a>
+
+## MD052 - Reference links should be valid
+
+Tags: links
+
+Aliases: reference-links
+
+...
+
+<a name="md053"></a>
+
+## MD053 - Link reference definitions should be meaningful
+
+Tags: links
+
+Aliases: link-references
+
+...
+
 <!-- markdownlint-configure-file {
   "no-inline-html": {
     "allowed_elements": [

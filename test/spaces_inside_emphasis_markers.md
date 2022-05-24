@@ -281,21 +281,21 @@ _*star*
 *star
 *_underscore_
 
-[reference_link]
+[reference_link][]
 _first_ and _second_
 
-[reference_link]
+[reference_link][]
 *first* and *second*
 
-[reference*link]
+[reference*link][]
 _first_ and _second_
 
-[reference*link]
+[reference*link][]
 *first* and *second*
 
-text [reference_link] under _ score text
+text [reference_link][] under _ score text
 
-text [reference*link] star * star text
+text [reference*link][] star * star text
 
 [reference_link]: https://example.com
 [reference*link]: https://example.com

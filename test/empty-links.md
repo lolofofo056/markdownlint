@@ -60,7 +60,7 @@
 
 [ref]: link
 
-[text]
+[text][]
 
 [text]: link
 

@@ -244,3 +244,9 @@ MD050:
 
 # MD051/link-fragments - Link fragments should be valid
 MD051: true
+
+# MD052/reference-links - Reference links should be valid
+MD052: true
+
+# MD053/link-references - Link reference definitions should be meaningful
+MD053: true

@@ -52,8 +52,8 @@ module.exports.listItemMarkerRe = /^([\s>]*)(?:[*+-]|\d+[.)])\s+/;
 module.exports.orderedListItemMarkerRe = /^[\s>]*0*(\d+)[.)]/;
 // Regular expression for all instances of emphasis markers
 var emphasisMarkersRe = /[_*]/g;
-// Regular expression for reference links (full, collapsed, and shortcut)
-var referenceLinkRe = /(?:^|[^)])\[((?:\[[^\]]*]|[^\]])*)](?:(?:\[([^\]]*)\])|[^(]|$)/g;
+// Regular expression for reference links (full and collapsed but not shortcut)
+var referenceLinkRe = /!?\[((?:\[[^\]]*]|[^\]])*)](?:\[([^\]]*)\])/g;
 // Regular expression for link reference definitions
 var linkReferenceDefinitionRe = /^ {0,3}\[(.*[^\\])]:\s.*$/;
 module.exports.linkReferenceDefinitionRe = linkReferenceDefinitionRe;
@@ -537,13 +537,13 @@ function ellipsify(text, start, end) {
         // Nothing to do
     }
     else if (start && end) {
-        text = text.substring(0, 15) + "..." + text.substring(text.length - 15);
+        text = text.slice(0, 15) + "..." + text.slice(-15);
     }
     else if (end) {
-        text = "..." + text.substring(text.length - 30);
+        text = "..." + text.slice(-30);
     }
     else {
-        text = text.substring(0, 30) + "...";
+        text = text.slice(0, 30) + "...";
     }
     return text;
 }
@@ -797,14 +797,16 @@ module.exports.emphasisMarkersInContent = emphasisMarkersInContent;
  * @returns {Object} Reference link data.
  */
 function getReferenceLinkData(params, lineMetadata) {
+    var normalize = function (s) { return s.toLowerCase().trim().replace(/\s+/g, " "); };
     var references = new Map();
     var definitions = new Map();
     var duplicateDefinitions = [];
+    var embeds = [];
     forEachLine(lineMetadata, function (line, lineIndex, inCode) {
         if (!inCode) {
             var linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
             if (linkReferenceDefinitionMatch) {
-                var label = linkReferenceDefinitionMatch[1].toLowerCase().trim();
+                var label = normalize(linkReferenceDefinitionMatch[1]);
                 if (definitions.has(label)) {
                     duplicateDefinitions.push([label, lineIndex]);
                 }
@@ -813,19 +815,44 @@ function getReferenceLinkData(params, lineMetadata) {
                 }
             }
             else {
-                var referenceLinkMatch = referenceLinkRe.exec(line);
-                if (referenceLinkMatch) {
-                    var label = (referenceLinkMatch[2] || referenceLinkMatch[1])
-                        .toLowerCase().trim();
+                var referenceLinkMatch = null;
+                while ((referenceLinkMatch = referenceLinkRe.exec(line)) !== null) {
+                    var collapsed = referenceLinkMatch[2].length === 0;
+                    var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+                    if (label.length > 0) {
+                        var index = referenceLinkMatch.index;
+                        references.set(label, [
+                            lineIndex,
+                            index,
+                            referenceLinkMatch[0].length
+                        ]);
+                        if (!referenceLinkMatch[0].startsWith("!")) {
+                            embeds.push([referenceLinkMatch[1], lineIndex, index + 1]);
+                        }
+                    }
+                }
+            }
+        }
+    });
+    for (var _i = 0, embeds_1 = embeds; _i < embeds_1.length; _i++) {
+        var embed = embeds_1[_i];
+        var text = embed[0], lineIndex = embed[1], embedIndex = embed[2];
+        var referenceLinkMatch = null;
+        while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
+            if (referenceLinkMatch[0].startsWith("!")) {
+                var collapsed = referenceLinkMatch[2].length === 0;
+                var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+                if (label.length > 0) {
+                    var index = referenceLinkMatch.index;
                     references.set(label, [
                         lineIndex,
-                        referenceLinkMatch.index,
+                        index + embedIndex,
                         referenceLinkMatch[0].length
                     ]);
                 }
             }
         }
-    });
+    }
     return {
         references: references,
         definitions: definitions,
@@ -4651,6 +4678,80 @@ module.exports = {
 
 /***/ }),
 
+/***/ "../lib/md052.js":
+/*!***********************!*\
+  !*** ../lib/md052.js ***!
+  \***********************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+// @ts-check
+
+var addError = (__webpack_require__(/*! ../helpers */ "../helpers/helpers.js").addError);
+var referenceLinkData = (__webpack_require__(/*! ./cache */ "../lib/cache.js").referenceLinkData);
+module.exports = {
+    "names": ["MD052", "reference-links"],
+    "description": "Reference links should be valid",
+    "tags": ["links"],
+    "function": function MD052(params, onError) {
+        var lines = params.lines;
+        var _a = referenceLinkData(), references = _a.references, definitions = _a.definitions;
+        for (var _i = 0, _b = references.entries(); _i < _b.length; _i++) {
+            var reference = _b[_i];
+            var label = reference[0], data = reference[1];
+            if (!definitions.has(label)) {
+                var lineIndex = data[0], index = data[1], length = data[2];
+                addError(onError, lineIndex + 1, "Missing link reference definition \"".concat(label, "\""), lines[lineIndex].slice(index, length), [index + 1, length]);
+            }
+        }
+    }
+};
+
+
+/***/ }),
+
+/***/ "../lib/md053.js":
+/*!***********************!*\
+  !*** ../lib/md053.js ***!
+  \***********************/
+/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+
+"use strict";
+// @ts-check
+
+var _a = __webpack_require__(/*! ../helpers */ "../helpers/helpers.js"), addError = _a.addError, ellipsify = _a.ellipsify;
+var referenceLinkData = (__webpack_require__(/*! ./cache */ "../lib/cache.js").referenceLinkData);
+module.exports = {
+    "names": ["MD053", "link-references"],
+    "description": "Link reference definitions should be meaningful",
+    "tags": ["links"],
+    "function": function MD053(params, onError) {
+        var lines = params.lines;
+        var _a = referenceLinkData(), references = _a.references, definitions = _a.definitions, duplicateDefinitions = _a.duplicateDefinitions;
+        // Look for unused
+        for (var _i = 0, _b = definitions.entries(); _i < _b.length; _i++) {
+            var definition = _b[_i];
+            var label = definition[0], lineIndex = definition[1];
+            if (!references.has(label)) {
+                addError(onError, lineIndex + 1, "Unused link reference definition \"".concat(label, "\""), ellipsify(lines[lineIndex]), [1, lines[lineIndex].length], {
+                    "deleteCount": -1
+                });
+            }
+        }
+        // Look for duplicate
+        for (var _c = 0, duplicateDefinitions_1 = duplicateDefinitions; _c < duplicateDefinitions_1.length; _c++) {
+            var duplicateDefinition = duplicateDefinitions_1[_c];
+            var label = duplicateDefinition[0], lineIndex = duplicateDefinition[1];
+            addError(onError, lineIndex + 1, "Duplicate link reference definition \"".concat(label, "\""), ellipsify(lines[lineIndex]), [1, lines[lineIndex].length], {
+                "deleteCount": -1
+            });
+        }
+    }
+};
+
+
+/***/ }),
+
 /***/ "../lib/rules.js":
 /*!***********************!*\
   !*** ../lib/rules.js ***!
@@ -4716,9 +4817,9 @@ var rules = __spreadArray(__spreadArray([
     __webpack_require__(/*! ./md047 */ "../lib/md047.js"),
     __webpack_require__(/*! ./md048 */ "../lib/md048.js")
 ], __webpack_require__(/*! ./md049-md050 */ "../lib/md049-md050.js"), true), [
-    __webpack_require__(/*! ./md051 */ "../lib/md051.js")
-    // require("./md052"),
-    // require("./md053")
+    __webpack_require__(/*! ./md051 */ "../lib/md051.js"),
+    __webpack_require__(/*! ./md052 */ "../lib/md052.js"),
+    __webpack_require__(/*! ./md053 */ "../lib/md053.js")
 ], false);
 rules.forEach(function (rule) {
     var name = rule.names[0].toLowerCase();

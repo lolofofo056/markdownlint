@@ -531,11 +531,11 @@ function ellipsify(text, start, end) {
   if (text.length <= 30) {
     // Nothing to do
   } else if (start && end) {
-    text = text.substring(0, 15) + "..." + text.substring(text.length - 15);
+    text = text.slice(0, 15) + "..." + text.slice(-15);
   } else if (end) {
-    text = "..." + text.substring(text.length - 30);
+    text = "..." + text.slice(-30);
   } else {
-    text = text.substring(0, 30) + "...";
+    text = text.slice(0, 30) + "...";
   }
   return text;
 }
@@ -815,36 +815,65 @@ module.exports.emphasisMarkersInContent = emphasisMarkersInContent;
  * @returns {Object} Reference link data.
  */
 function getReferenceLinkData(params, lineMetadata) {
+  const normalize = (s) => s.toLowerCase().trim().replace(/\s+/g, " ");
   const references = new Map();
   const definitions = new Map();
   const duplicateDefinitions = [];
+  const embeds = [];
   forEachLine(lineMetadata, (line, lineIndex, inCode) => {
     if (!inCode) {
       const linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
       if (linkReferenceDefinitionMatch) {
-        const label = linkReferenceDefinitionMatch[1].toLowerCase().trim();
+        const label = normalize(linkReferenceDefinitionMatch[1]);
         if (definitions.has(label)) {
           duplicateDefinitions.push([ label, lineIndex ]);
         } else {
           definitions.set(label, lineIndex);
         }
       } else {
-        const referenceLinkMatch = referenceLinkRe.exec(line);
-        if (referenceLinkMatch) {
-          const label = (referenceLinkMatch[2] || referenceLinkMatch[1])
-            .toLowerCase().trim();
+        let referenceLinkMatch = null;
+        while ((referenceLinkMatch = referenceLinkRe.exec(line)) !== null) {
+          const collapsed = referenceLinkMatch[2].length === 0;
+          const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+          if (label.length > 0) {
+            const index = referenceLinkMatch.index;
+            references.set(
+              label,
+              [
+                lineIndex,
+                index,
+                referenceLinkMatch[0].length
+              ]
+            );
+            if (!referenceLinkMatch[0].startsWith("!")) {
+              embeds.push([ referenceLinkMatch[1], lineIndex, index + 1 ]);
+            }
+          }
+        }
+      }
+    }
+  });
+  for (const embed of embeds) {
+    const [ text, lineIndex, embedIndex ] = embed;
+    let referenceLinkMatch = null;
+    while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
+      if (referenceLinkMatch[0].startsWith("!")) {
+        const collapsed = referenceLinkMatch[2].length === 0;
+        const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+        if (label.length > 0) {
+          const index = referenceLinkMatch.index;
           references.set(
             label,
             [
               lineIndex,
-              referenceLinkMatch.index,
+              index + embedIndex,
               referenceLinkMatch[0].length
             ]
           );
         }
       }
     }
-  });
+  }
   return {
     references,
     definitions,

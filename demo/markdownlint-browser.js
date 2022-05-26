@@ -25,11 +25,20 @@ module.exports = webpackEmptyContext;
 /*!*****************************!*\
   !*** ../helpers/helpers.js ***!
   \*****************************/
-/***/ ((module, __unused_webpack_exports, __webpack_require__) => {
+/***/ (function(module, __unused_webpack_exports, __webpack_require__) {
 
 "use strict";
 // @ts-check
 
+var __spreadArray = (this && this.__spreadArray) || function (to, from, pack) {
+    if (pack || arguments.length === 2) for (var i = 0, l = from.length, ar; i < l; i++) {
+        if (ar || !(i in from)) {
+            if (!ar) ar = Array.prototype.slice.call(from, 0, i);
+            ar[i] = from[i];
+        }
+    }
+    return to.concat(ar || Array.prototype.slice.call(from));
+};
 // Regular expression for matching common newline characters
 // See NEWLINES_RE in markdown-it/lib/rules_core/normalize.js
 var newLineRe = /\r\n?|\n/g;
@@ -801,7 +810,6 @@ function getReferenceLinkData(params, lineMetadata) {
     var references = new Map();
     var definitions = new Map();
     var duplicateDefinitions = [];
-    var embeds = [];
     forEachLine(lineMetadata, function (line, lineIndex, inCode) {
         if (!inCode) {
             var linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
@@ -815,44 +823,36 @@ function getReferenceLinkData(params, lineMetadata) {
                 }
             }
             else {
-                var referenceLinkMatch = null;
-                while ((referenceLinkMatch = referenceLinkRe.exec(line)) !== null) {
-                    var collapsed = referenceLinkMatch[2].length === 0;
-                    var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
-                    if (label.length > 0) {
-                        var index = referenceLinkMatch.index;
-                        references.set(label, [
-                            lineIndex,
-                            index,
-                            referenceLinkMatch[0].length
-                        ]);
-                        if (!referenceLinkMatch[0].startsWith("!")) {
-                            embeds.push([referenceLinkMatch[1], lineIndex, index + 1]);
+                var textOffsets = [[line, 0]];
+                var textOffset = null;
+                while ((textOffset = textOffsets.shift())) {
+                    var text = textOffset[0], offset = textOffset[1];
+                    var referenceLinkMatch = null;
+                    while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
+                        var matchText = referenceLinkMatch[0];
+                        if ((offset === 0) || matchText.startsWith("!")) {
+                            var collapsed = referenceLinkMatch[2].length === 0;
+                            var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+                            if (label.length > 0) {
+                                var index = referenceLinkMatch.index;
+                                references.set(label, __spreadArray(__spreadArray([], (references.get(label) || []), true), [
+                                    [
+                                        lineIndex,
+                                        offset + index,
+                                        matchText.length
+                                    ]
+                                ], false));
+                                // Check for images embedded in links
+                                if ((offset === 0) && !matchText.startsWith("!")) {
+                                    textOffsets.push([referenceLinkMatch[1], index + 1]);
+                                }
+                            }
                         }
                     }
                 }
             }
         }
     });
-    for (var _i = 0, embeds_1 = embeds; _i < embeds_1.length; _i++) {
-        var embed = embeds_1[_i];
-        var text = embed[0], lineIndex = embed[1], embedIndex = embed[2];
-        var referenceLinkMatch = null;
-        while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
-            if (referenceLinkMatch[0].startsWith("!")) {
-                var collapsed = referenceLinkMatch[2].length === 0;
-                var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
-                if (label.length > 0) {
-                    var index = referenceLinkMatch.index;
-                    references.set(label, [
-                        lineIndex,
-                        index + embedIndex,
-                        referenceLinkMatch[0].length
-                    ]);
-                }
-            }
-        }
-    }
     return {
         references: references,
         definitions: definitions,
@@ -4698,10 +4698,13 @@ module.exports = {
         var _a = referenceLinkData(), references = _a.references, definitions = _a.definitions;
         for (var _i = 0, _b = references.entries(); _i < _b.length; _i++) {
             var reference = _b[_i];
-            var label = reference[0], data = reference[1];
+            var label = reference[0], datas = reference[1];
             if (!definitions.has(label)) {
-                var lineIndex = data[0], index = data[1], length = data[2];
-                addError(onError, lineIndex + 1, "Missing link reference definition \"".concat(label, "\""), lines[lineIndex].slice(index, length), [index + 1, length]);
+                for (var _c = 0, datas_1 = datas; _c < datas_1.length; _c++) {
+                    var data = datas_1[_c];
+                    var lineIndex = data[0], index = data[1], length = data[2];
+                    addError(onError, lineIndex + 1, "Missing link reference definition \"".concat(label, "\""), lines[lineIndex].slice(index, index + length), [index + 1, length]);
+                }
             }
         }
     }

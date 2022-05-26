@@ -819,7 +819,6 @@ function getReferenceLinkData(params, lineMetadata) {
   const references = new Map();
   const definitions = new Map();
   const duplicateDefinitions = [];
-  const embeds = [];
   forEachLine(lineMetadata, (line, lineIndex, inCode) => {
     if (!inCode) {
       const linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
@@ -831,49 +830,40 @@ function getReferenceLinkData(params, lineMetadata) {
           definitions.set(label, lineIndex);
         }
       } else {
-        let referenceLinkMatch = null;
-        while ((referenceLinkMatch = referenceLinkRe.exec(line)) !== null) {
-          const collapsed = referenceLinkMatch[2].length === 0;
-          const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
-          if (label.length > 0) {
-            const index = referenceLinkMatch.index;
-            references.set(
-              label,
-              [
-                lineIndex,
-                index,
-                referenceLinkMatch[0].length
-              ]
-            );
-            if (!referenceLinkMatch[0].startsWith("!")) {
-              embeds.push([ referenceLinkMatch[1], lineIndex, index + 1 ]);
+        const textOffsets = [ [ line, 0 ] ];
+        let textOffset = null;
+        while ((textOffset = textOffsets.shift())) {
+          const [ text, offset ] = textOffset;
+          let referenceLinkMatch = null;
+          while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
+            const matchText = referenceLinkMatch[0];
+            if ((offset === 0) || matchText.startsWith("!")) {
+              const collapsed = referenceLinkMatch[2].length === 0;
+              const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+              if (label.length > 0) {
+                const index = referenceLinkMatch.index;
+                references.set(
+                  label,
+                  [
+                    ...(references.get(label) || []),
+                    [
+                      lineIndex,
+                      offset + index,
+                      matchText.length
+                    ]
+                  ]
+                );
+                // Check for images embedded in links
+                if ((offset === 0) && !matchText.startsWith("!")) {
+                  textOffsets.push([ referenceLinkMatch[1], index + 1 ]);
+                }
+              }
             }
           }
         }
       }
     }
   });
-  for (const embed of embeds) {
-    const [ text, lineIndex, embedIndex ] = embed;
-    let referenceLinkMatch = null;
-    while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
-      if (referenceLinkMatch[0].startsWith("!")) {
-        const collapsed = referenceLinkMatch[2].length === 0;
-        const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
-        if (label.length > 0) {
-          const index = referenceLinkMatch.index;
-          references.set(
-            label,
-            [
-              lineIndex,
-              index + embedIndex,
-              referenceLinkMatch[0].length
-            ]
-          );
-        }
-      }
-    }
-  }
   return {
     references,
     definitions,

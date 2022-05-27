@@ -18,6 +18,10 @@ With nested brackets: [t[ex]t][label]
 
 With inline content: [*text*][label]
 
+With inline code span: [`code`][label]
+
+Shortcut inline code span: [`code`]
+
 Standard link: [text](https://example.com/standard)
 
 ## Invalid Links
@@ -51,6 +55,7 @@ Image in link: [![text][missing]][label] {MD052}
 [label]: https://example.com/label
 [ label with  spaces ]: https://example.com/label-with-spaces
 [image]: https://example.com/image
+[`code`]: https://example.com/code
 
 ## Invalid Labels
 
@@ -67,3 +72,11 @@ Link and image: [text][label] [![text][image]][label]
 ## More Invalid Links and Images after Labels
 
 Bad link with image [![text][image]][missing] {MD052}
+
+## Shortcut One-Way Handling
+
+Validates the label: [shortcut]
+
+[shortcut]: https://example.com/shortcut
+
+Not flagged: [ignored]

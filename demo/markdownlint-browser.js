@@ -650,9 +650,10 @@ module.exports.htmlElementRanges = function (params, lineMetadata) {
  * @param {number} length Length to check.
  * @returns {boolean} True iff the specified range overlaps.
  */
-module.exports.overlapsAnyRange = function (ranges, lineIndex, index, length) { return (!ranges.every(function (span) { return ((lineIndex !== span[0]) ||
+var overlapsAnyRange = function (ranges, lineIndex, index, length) { return (!ranges.every(function (span) { return ((lineIndex !== span[0]) ||
     (index + length < span[1]) ||
     (index > span[1] + span[2])); })); };
+module.exports.overlapsAnyRange = overlapsAnyRange;
 // Returns a range object for a line by applying a RegExp
 module.exports.rangeFromRegExp = function rangeFromRegExp(line, regexp) {
     var range = null;
@@ -803,17 +804,20 @@ module.exports.emphasisMarkersInContent = emphasisMarkersInContent;
  *
  * @param {Object} params RuleParams instance.
  * @param {Object} lineMetadata Line metadata object.
+ * @param {number[][]} exclusions Ranges to exclude.
  * @returns {Object} Reference link data.
  */
-function getReferenceLinkData(params, lineMetadata) {
+function getReferenceLinkData(params, lineMetadata, exclusions) {
     var normalize = function (s) { return s.toLowerCase().trim().replace(/\s+/g, " "); };
+    var excluded = function (li, m) { return overlapsAnyRange(exclusions, li, m.index, m[0].length); };
     var references = new Map();
     var definitions = new Map();
     var duplicateDefinitions = [];
     forEachLine(lineMetadata, function (line, lineIndex, inCode) {
         if (!inCode) {
             var linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
-            if (linkReferenceDefinitionMatch) {
+            if (linkReferenceDefinitionMatch &&
+                !excluded(lineIndex, linkReferenceDefinitionMatch)) {
                 var label = normalize(linkReferenceDefinitionMatch[1]);
                 if (definitions.has(label)) {
                     duplicateDefinitions.push([label, lineIndex]);
@@ -829,22 +833,24 @@ function getReferenceLinkData(params, lineMetadata) {
                     var text = textOffset[0], offset = textOffset[1];
                     var referenceLinkMatch = null;
                     while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
-                        var matchText = referenceLinkMatch[0];
-                        if ((offset === 0) || matchText.startsWith("!")) {
-                            var collapsed = referenceLinkMatch[2].length === 0;
-                            var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
-                            if (label.length > 0) {
-                                var index = referenceLinkMatch.index;
-                                references.set(label, __spreadArray(__spreadArray([], (references.get(label) || []), true), [
-                                    [
-                                        lineIndex,
-                                        offset + index,
-                                        matchText.length
-                                    ]
-                                ], false));
-                                // Check for images embedded in links
-                                if ((offset === 0) && !matchText.startsWith("!")) {
-                                    textOffsets.push([referenceLinkMatch[1], index + 1]);
+                        if (!excluded(lineIndex, referenceLinkMatch)) {
+                            var matchText = referenceLinkMatch[0];
+                            if ((offset === 0) || matchText.startsWith("!")) {
+                                var collapsed = referenceLinkMatch[2].length === 0;
+                                var label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+                                if (label.length > 0) {
+                                    var index = referenceLinkMatch.index;
+                                    references.set(label, __spreadArray(__spreadArray([], (references.get(label) || []), true), [
+                                        [
+                                            lineIndex,
+                                            offset + index,
+                                            matchText.length
+                                        ]
+                                    ], false));
+                                    // Check for images embedded in links
+                                    if ((offset === 0) && !matchText.startsWith("!")) {
+                                        textOffsets.push([referenceLinkMatch[1], index + 1]);
+                                    }
                                 }
                             }
                         }
@@ -1707,11 +1713,12 @@ function lintContent(ruleList, name, content, md, config, frontMatter, handleRul
         frontMatterLines: frontMatterLines
     });
     var lineMetadata = helpers.getLineMetadata(paramsBase);
-    cache.codeBlockAndSpanRanges(helpers.codeBlockAndSpanRanges(paramsBase, lineMetadata));
+    var codeBlockAndSpanRanges = helpers.codeBlockAndSpanRanges(paramsBase, lineMetadata);
+    cache.codeBlockAndSpanRanges(codeBlockAndSpanRanges);
     cache.htmlElementRanges(helpers.htmlElementRanges(paramsBase, lineMetadata));
     cache.lineMetadata(lineMetadata);
     cache.flattenedLists(helpers.flattenLists(paramsBase.tokens));
-    cache.referenceLinkData(helpers.getReferenceLinkData(paramsBase, lineMetadata));
+    cache.referenceLinkData(helpers.getReferenceLinkData(paramsBase, lineMetadata, codeBlockAndSpanRanges));
     // Function to run for each rule
     var results = [];
     // eslint-disable-next-line jsdoc/require-jsdoc

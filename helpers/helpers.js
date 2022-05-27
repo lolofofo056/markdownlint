@@ -650,13 +650,14 @@ module.exports.htmlElementRanges = (params, lineMetadata) => {
  * @param {number} length Length to check.
  * @returns {boolean} True iff the specified range overlaps.
  */
-module.exports.overlapsAnyRange = (ranges, lineIndex, index, length) => (
+const overlapsAnyRange = (ranges, lineIndex, index, length) => (
   !ranges.every((span) => (
     (lineIndex !== span[0]) ||
     (index + length < span[1]) ||
     (index > span[1] + span[2])
   ))
 );
+module.exports.overlapsAnyRange = overlapsAnyRange;
 
 // Returns a range object for a line by applying a RegExp
 module.exports.rangeFromRegExp = function rangeFromRegExp(line, regexp) {
@@ -812,17 +813,23 @@ module.exports.emphasisMarkersInContent = emphasisMarkersInContent;
  *
  * @param {Object} params RuleParams instance.
  * @param {Object} lineMetadata Line metadata object.
+ * @param {number[][]} exclusions Ranges to exclude.
  * @returns {Object} Reference link data.
  */
-function getReferenceLinkData(params, lineMetadata) {
+function getReferenceLinkData(params, lineMetadata, exclusions) {
   const normalize = (s) => s.toLowerCase().trim().replace(/\s+/g, " ");
+  const excluded =
+    (li, m) => overlapsAnyRange(exclusions, li, m.index, m[0].length);
   const references = new Map();
   const definitions = new Map();
   const duplicateDefinitions = [];
   forEachLine(lineMetadata, (line, lineIndex, inCode) => {
     if (!inCode) {
       const linkReferenceDefinitionMatch = linkReferenceDefinitionRe.exec(line);
-      if (linkReferenceDefinitionMatch) {
+      if (
+        linkReferenceDefinitionMatch &&
+        !excluded(lineIndex, linkReferenceDefinitionMatch)
+      ) {
         const label = normalize(linkReferenceDefinitionMatch[1]);
         if (definitions.has(label)) {
           duplicateDefinitions.push([ label, lineIndex ]);
@@ -836,26 +843,28 @@ function getReferenceLinkData(params, lineMetadata) {
           const [ text, offset ] = textOffset;
           let referenceLinkMatch = null;
           while ((referenceLinkMatch = referenceLinkRe.exec(text)) !== null) {
-            const matchText = referenceLinkMatch[0];
-            if ((offset === 0) || matchText.startsWith("!")) {
-              const collapsed = referenceLinkMatch[2].length === 0;
-              const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
-              if (label.length > 0) {
-                const index = referenceLinkMatch.index;
-                references.set(
-                  label,
-                  [
-                    ...(references.get(label) || []),
+            if (!excluded(lineIndex, referenceLinkMatch)) {
+              const matchText = referenceLinkMatch[0];
+              if ((offset === 0) || matchText.startsWith("!")) {
+                const collapsed = referenceLinkMatch[2].length === 0;
+                const label = normalize(referenceLinkMatch[collapsed ? 1 : 2]);
+                if (label.length > 0) {
+                  const index = referenceLinkMatch.index;
+                  references.set(
+                    label,
                     [
-                      lineIndex,
-                      offset + index,
-                      matchText.length
+                      ...(references.get(label) || []),
+                      [
+                        lineIndex,
+                        offset + index,
+                        matchText.length
+                      ]
                     ]
-                  ]
-                );
-                // Check for images embedded in links
-                if ((offset === 0) && !matchText.startsWith("!")) {
-                  textOffsets.push([ referenceLinkMatch[1], index + 1 ]);
+                  );
+                  // Check for images embedded in links
+                  if ((offset === 0) && !matchText.startsWith("!")) {
+                    textOffsets.push([ referenceLinkMatch[1], index + 1 ]);
+                  }
                 }
               }
             }

@@ -171,7 +171,7 @@ test("https://github.com/pi-hole/docs", (t) => {
   const rootDir = "./test-repos/pi-hole-docs";
   const globPatterns = [ join(rootDir, "**/*.md") ];
   const configPath = join(rootDir, ".markdownlint.json");
-  const ignoreRes = [ /^[^:]+: \d+: MD051\/.*$\r?\n?/gm ];
+  const ignoreRes = [ /^[^:]+: \d+: (MD051|MD053)\/.*$\r?\n?/gm ];
   return lintTestRepo(t, globPatterns, configPath, ignoreRes);
 });
 
@@ -189,7 +189,8 @@ test("https://github.com/webpack/webpack.js.org", (t) => {
   const rootDir = "./test-repos/webpack-webpack-js-org";
   const globPatterns = [ join(rootDir, "**/*.md") ];
   const configPath = join(rootDir, ".markdownlint.json");
-  return lintTestRepo(t, globPatterns, configPath);
+  const ignoreRes = [ /^[^:]+: \d+: MD051\/.*$\r?\n?/gm ];
+  return lintTestRepo(t, globPatterns, configPath, ignoreRes);
 });
 
 // Optional repositories (very large)

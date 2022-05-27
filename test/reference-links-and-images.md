@@ -18,10 +18,6 @@ With nested brackets: [t[ex]t][label]
 
 With inline content: [*text*][label]
 
-Not a reference link (space): [text] [wrong]
-
-Not a reference link (empty): [text][ ]
-
 Standard link: [text](https://example.com/standard)
 
 ## Invalid Links
@@ -29,6 +25,14 @@ Standard link: [text](https://example.com/standard)
 Missing label: [text][missing] {MD052}
 
 Mixed valid/invalid: [text][label] [text][missing] {MD052}
+
+## Non-Links
+
+Space: [text] [wrong]
+
+Empty: [text][ ]
+
+Code span: `[text][wrong]`
 
 ## Valid Images
 
